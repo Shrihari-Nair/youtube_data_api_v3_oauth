@@ -1,82 +1,34 @@
 import os
-import pickle
 from flask import Flask, redirect, request, session, url_for
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Required for session management
-
-# If modifying these scopes, delete the file token.pickle.
-SCOPES = [
-    'https://www.googleapis.com/auth/youtube.readonly',
-    'https://www.googleapis.com/auth/youtube.force-ssl',
-    'https://www.googleapis.com/auth/userinfo.profile',
-    'openid',
-    'https://www.googleapis.com/auth/userinfo.email'
-]
+app.secret_key = os.urandom(24)
 
 # Configure OAuth 2.0
 CLIENT_SECRETS_FILE = "client_secrets.json"
 REDIRECT_URI = "http://localhost:5000/oauth2callback"
 
-def get_authenticated_service(credentials):
-    """Gets an authenticated YouTube API service."""
-    return build('youtube', 'v3', credentials=credentials)
-
-def get_my_playlists(youtube):
-    """Retrieves the authenticated user's playlists."""
-    request = youtube.playlists().list(
-        part="snippet,contentDetails",
-        maxResults=25,
-        mine=True
-    )
-    response = request.execute()
-    return response.get('items', [])
-
-def get_my_subscriptions(youtube):
-    """Retrieves the authenticated user's subscriptions."""
-    request = youtube.subscriptions().list(
-        part="snippet",
-        maxResults=25,
-        mine=True
-    )
-    response = request.execute()
-    return response.get('items', [])
+# Include all scopes that Google adds during OAuth flow
+SCOPES = [
+    'https://www.googleapis.com/auth/youtube.readonly',
+    'https://www.googleapis.com/auth/youtube.force-ssl',
+    'https://www.googleapis.com/auth/userinfo.profile',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'openid'
+]
 
 @app.route('/')
 def index():
     if 'credentials' not in session:
         return redirect(url_for('authorize'))
     
-    # Get credentials from session
-    credentials = pickle.loads(session['credentials'])
-    
-    # Refresh credentials if expired
-    if credentials.expired:
-        credentials.refresh(Request())
-        session['credentials'] = pickle.dumps(credentials)
-    
-    # Get YouTube service
-    youtube = get_authenticated_service(credentials)
-    
-    # Get user's data
-    playlists = get_my_playlists(youtube)
-    subscriptions = get_my_subscriptions(youtube)
-    
-    # Create HTML response
-    html = "<h1>Your YouTube Data</h1>"
-    
-    html += "<h2>Your Playlists:</h2>"
-    for playlist in playlists:
-        html += f"<p>Playlist: {playlist['snippet']['title']}</p>"
-    
-    html += "<h2>Your Subscriptions:</h2>"
-    for subscription in subscriptions:
-        html += f"<p>Channel: {subscription['snippet']['title']}</p>"
-    
-    return html
+    return """
+    <h1>Authentication Successful!</h1>
+    <p>You have successfully authenticated with YouTube.</p>
+    <p>Your credentials are stored in the session.</p>
+    """
 
 @app.route('/authorize')
 def authorize():
@@ -107,7 +59,7 @@ def oauth2callback():
     flow.fetch_token(authorization_response=authorization_response)
     
     credentials = flow.credentials
-    session['credentials'] = pickle.dumps(credentials)
+    session['credentials'] = credentials.to_json()
     
     return redirect(url_for('index'))
 
